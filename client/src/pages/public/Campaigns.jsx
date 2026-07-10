@@ -116,11 +116,12 @@ const Campaigns = () => {
             <p className="text-gray-400 text-sm mt-2">Check back soon for new initiatives.</p>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {campaigns.map((campaign) => {
-              const progress = Math.min((campaign.raisedAmount / campaign.targetAmount) * 100, 100);
-              return (
-                <div key={campaign._id} className="card flex flex-col">
+          <>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {campaigns.map((campaign) => {
+                const progress = Math.min((campaign.raisedAmount / campaign.targetAmount) * 100, 100);
+                return (
+                  <div key={campaign._id} className="card flex flex-col">
                   <div className="mb-4 flex flex-wrap items-center gap-2">
                     <span className="badge bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs uppercase tracking-[0.18em] font-semibold">
                       {campaign.category.replace(/_/g, ' ')}
@@ -169,14 +170,19 @@ const Campaigns = () => {
                       <span>{new Date(campaign.endDate).toLocaleDateString()}</span>
                     </div>
                   </div>
-
-                  <Link to="/donate-money" className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-red-600 to-pink-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-red-200/40 transition hover:from-red-700 hover:to-pink-700 mt-auto">
-                    Donate Now
-                  </Link>
                 </div>
               );
             })}
           </div>
+          <div className="mt-10 text-center">
+            <Link
+              to="/donate-money"
+              className="inline-flex items-center justify-center rounded-full bg-red-600 px-8 py-4 text-base font-semibold text-white shadow-lg shadow-red-200/40 transition hover:bg-red-700"
+            >
+              Donate Now
+            </Link>
+          </div>
+          </>
         )}
       </div>
     </div>

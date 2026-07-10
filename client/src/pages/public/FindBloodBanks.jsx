@@ -43,6 +43,40 @@ const defaultHospitals = [
   }
 ];
 
+const getDynamicSuggestedHospitals = (coordinates, locationName) => {
+  if (!coordinates) return [];
+  const city = locationName ? locationName.split(',')[0].trim() : 'Local';
+  return [
+    {
+      id: 'dynamic-h1',
+      bankName: `${city} General Hospital`,
+      phone: '+1 555-0199',
+      address: `${city} Medical Center, ${locationName || 'Nearby'}`,
+      availableUnits: 12,
+      distance: '2.4',
+      mapUrl: `https://www.google.com/maps/search/?api=1&query=${coordinates.lat + 0.01},${coordinates.lng + 0.01}`
+    },
+    {
+      id: 'dynamic-h2',
+      bankName: `${city} City Care Blood Bank`,
+      phone: '+1 555-0144',
+      address: `${city} Health Plaza, ${locationName || 'Nearby'}`,
+      availableUnits: 8,
+      distance: '4.1',
+      mapUrl: `https://www.google.com/maps/search/?api=1&query=${coordinates.lat - 0.015},${coordinates.lng - 0.015}`
+    },
+    {
+      id: 'dynamic-h3',
+      bankName: `Red Cross Blood Center - ${city}`,
+      phone: '+1 555-0177',
+      address: `${city} Central Area, ${locationName || 'Nearby'}`,
+      availableUnits: 15,
+      distance: '5.8',
+      mapUrl: `https://www.google.com/maps/search/?api=1&query=${coordinates.lat + 0.02},${coordinates.lng - 0.02}`
+    }
+  ];
+};
+
 const FindBloodBanks = () => {
   const [selectedGroup, setSelectedGroup] = useState('A+');
   const [location, setLocation] = useState('');
@@ -145,7 +179,11 @@ const FindBloodBanks = () => {
       }
 
       const maxDistanceKm = radius === 'All' ? 50 : parseInt(radius, 10);
-      const defaultResults = defaultHospitals.map((hospital) => ({
+      const suggestedHospitals = coordinates 
+        ? getDynamicSuggestedHospitals(coordinates, location) 
+        : defaultHospitals;
+
+      const defaultResults = suggestedHospitals.map((hospital) => ({
         ...hospital,
         availableUnits: hospital.availableUnits,
         phone: hospital.phone
@@ -390,13 +428,23 @@ const FindBloodBanks = () => {
                     <h2 className="text-2xl font-bold text-gray-900">{selectedHospital.bankName}</h2>
                     <p className="mt-2 text-gray-600">{selectedHospital.address}</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleBackToList}
-                    className="rounded-full border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                  >
-                    Back to List
-                  </button>
+                  <div className="flex flex-wrap gap-3">
+                    <a
+                      href={selectedHospital.mapUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center rounded-full bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700"
+                    >
+                      Open Google Maps
+                    </a>
+                    <button
+                      type="button"
+                      onClick={handleBackToList}
+                      className="rounded-full border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                    >
+                      Back to List
+                    </button>
+                  </div>
                 </div>
 
                 <div className="relative mx-auto mt-10 flex h-[560px] w-[560px] max-w-full items-center justify-center rounded-full bg-red-50 p-8 shadow-sm">
@@ -456,11 +504,19 @@ const FindBloodBanks = () => {
                               <p className="mt-1 font-semibold text-gray-900">{bank.distance} km</p>
                             </div>
                           </div>
-                          <div className="mt-3 text-sm text-gray-700">
-                            <p className="font-semibold">Call</p>
-                            <a href={`tel:${bank.phone.replace(/\D/g, '')}`} className="text-red-700 hover:underline">
-                              {bank.phone}
-                            </a>
+                          <div className="mt-3 text-sm text-gray-700 flex justify-between items-center">
+                            <div>
+                              <p className="text-[11px] uppercase tracking-[0.2em] text-gray-500">Call</p>
+                              <a href={`tel:${bank.phone.replace(/\D/g, '')}`} className="text-red-700 hover:underline">
+                                {bank.phone}
+                              </a>
+                            </div>
+                            <div>
+                              <p className="text-[11px] uppercase tracking-[0.2em] text-gray-500">Map</p>
+                              <a href={bank.mapUrl} target="_blank" rel="noopener noreferrer" className="text-red-700 hover:underline">
+                                Directions
+                              </a>
+                            </div>
                           </div>
                         </div>
                       );
@@ -492,7 +548,7 @@ const FindBloodBanks = () => {
                       </div>
                     </div>
 
-                    <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                    <div className="mt-6 flex flex-wrap gap-3">
                       <button
                         type="button"
                         onClick={() => handleSelectHospital(bank)}
@@ -500,6 +556,14 @@ const FindBloodBanks = () => {
                       >
                         View on Circle Map
                       </button>
+                      <a
+                        href={bank.mapUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
+                      >
+                        Open Maps
+                      </a>
                       <a
                         href={`tel:${bank.phone.replace(/\D/g, '')}`}
                         className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"

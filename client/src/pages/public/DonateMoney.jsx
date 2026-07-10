@@ -20,6 +20,7 @@ const DonateMoney = () => {
   const [showUpi, setShowUpi] = useState(false);
 
   const presetAmounts = [100, 500, 1000, 5000, 10000];
+  const locationOptions = ['Hyderabad', 'Bengaluru', 'Warangal', 'Hanmakonda'];
 
   useEffect(() => {
     loadCampaigns();
@@ -74,7 +75,11 @@ const DonateMoney = () => {
       return;
     }
 
-    const campaignTitle = campaigns.find((c) => c._id === selectedCampaign)?.title || 'General Fund';
+    const campaignTitle =
+      campaigns.find((c) => c._id === selectedCampaign)?.title ||
+      (locationOptions.includes(selectedCampaign)
+        ? `Donation from ${selectedCampaign}`
+        : 'General Fund');
     const upiId = 'lifesaver@upi';
     const payeeName = 'LifeSaver';
     const note = `Donation for ${campaignTitle}`;
@@ -160,6 +165,11 @@ const DonateMoney = () => {
                   className="input-field"
                 >
                   <option value="">General Fund</option>
+                  {locationOptions.map((location) => (
+                    <option key={location} value={location}>
+                      {location}
+                    </option>
+                  ))}
                   {campaigns.map((campaign) => (
                     <option key={campaign._id} value={campaign._id}>
                       {campaign.title}
@@ -245,14 +255,10 @@ const DonateMoney = () => {
               </label>
 
               <div className="grid grid-cols-1 gap-3">
-                <button type="submit" disabled={loading} className="btn-primary w-full">
-                  <FaHandHoldingHeart className="mr-2" />
-                  {loading ? 'Processing...' : 'Donate Now'}
-                </button>
                 <button
                   type="button"
                   onClick={generatePhonePeScanner}
-                  className="btn-secondary w-full inline-flex items-center justify-center gap-2"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-red-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-red-200/40 transition hover:bg-red-700"
                 >
                   <FaQrcode />
                   Generate PhonePe QR
@@ -269,12 +275,6 @@ const DonateMoney = () => {
                 <p className="text-sm text-gray-600 mb-4">
                   Open PhonePe or any UPI app and scan the QR code below to complete your donation.
                 </p>
-                <a
-                  href={upiLink}
-                  className="inline-flex items-center justify-center rounded-full bg-primary-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-primary-200/40 hover:bg-primary-700 transition"
-                >
-                  Open payment app
-                </a>
               </div>
             )}
           </div>

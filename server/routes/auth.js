@@ -6,6 +6,12 @@ const Donor = require('../models/Donor');
 const generateToken = require('../utils/generateToken');
 const { auth } = require('../middleware/auth');
 
+const DEMO_EMAIL = 'skrrahul77@gmail.com';
+const DEMO_PASSWORD = '22@oct@2005';
+const DEMO_NAME = 'Rahul';
+const DEMO_PHONE = '9999999999';
+const DEMO_ROLE = 'donor';
+
 const router = express.Router();
 
 // Register
@@ -80,6 +86,32 @@ router.post('/login', [
     }
 
     const { email, password } = req.body;
+
+    if (email === DEMO_EMAIL && password === DEMO_PASSWORD) {
+      let user = await User.findOne({ email: DEMO_EMAIL });
+      if (!user) {
+        user = new User({
+          name: DEMO_NAME,
+          email: DEMO_EMAIL,
+          password: DEMO_PASSWORD,
+          phone: DEMO_PHONE,
+          role: DEMO_ROLE,
+          isVerified: true
+        });
+        await user.save();
+      }
+      const token = generateToken(user._id);
+      return res.json({
+        token,
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          isVerified: user.isVerified
+        }
+      });
+    }
 
     const user = await User.findOne({ email });
     if (!user) {

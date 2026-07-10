@@ -4,8 +4,11 @@ import { useAuth } from '../../context/AuthContext';
 import { FaHeartbeat } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 
+const demoEmail = 'skrrahul77@gmail.com';
+const demoPassword = '22@oct@2005';
+
 const Login = () => {
-  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [formData, setFormData] = useState({ email: demoEmail, password: demoPassword });
   const [loading, setLoading] = useState(false);
   const { login, demoLogin } = useAuth();
   const navigate = useNavigate();
@@ -20,8 +23,8 @@ const Login = () => {
 
     try {
       if (
-        formData.email === 'skrrahul77@gmail.com' &&
-        formData.password === '22@oct@2005'
+        formData.email === demoEmail &&
+        formData.password === demoPassword
       ) {
         const response = await demoLogin();
         toast.success('Login successful!');

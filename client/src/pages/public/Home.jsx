@@ -42,20 +42,7 @@ const Home = () => {
             <p className="text-lg md:text-xl mb-10 text-primary-100 leading-relaxed">
               Connecting blood donors, blood banks, and hospitals to save lives when it matters most.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/become-donor" className="btn-secondary bg-white text-primary-600 border-white hover:bg-primary-50">
-                <FaHeartbeat className="mr-2" />
-                Become a Donor
-              </Link>
-              <Link to="/search" className="btn-primary bg-green-600 border-green-600 text-white hover:bg-green-700">
-                <FaTint className="mr-2" />
-                Request Blood
-              </Link>
-              <Link to="/find-blood-banks" className="btn-secondary bg-white text-primary-600 border-white hover:bg-primary-50">
-                <FaHospital className="mr-2" />
-                Find Blood Banks
-              </Link>
-            </div>
+
           </div>
         </div>
       </section>

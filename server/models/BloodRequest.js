@@ -15,6 +15,17 @@ const bloodRequestSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  requesterEmail: {
+    type: String,
+    required: true,
+    lowercase: true
+  },
+  hospitalName: {
+    type: String
+  },
+  hospitalLocation: {
+    type: String
+  },
   bloodGroup: {
     type: String,
     enum: ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'],

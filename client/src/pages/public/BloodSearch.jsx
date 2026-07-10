@@ -9,7 +9,14 @@ const BloodSearch = () => {
   const [searched, setSearched] = useState(false);
 
   const bloodGroups = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
-  const components = ['whole_blood', 'red_blood_cells', 'plasma', 'platelets', 'cryoprecipitate'];
+  const components = [
+    { value: '', label: 'All Components' },
+    { value: 'whole_blood', label: 'WHOLE BLOOD' },
+    { value: 'red_blood_cells', label: 'RED BLOOD CELLS' },
+    { value: 'plasma', label: 'PLASMA' },
+    { value: 'platelets', label: 'PLATELETS' },
+    { value: 'cryoprecipitate', label: 'CRYOPRECIPITATE' }
+  ];
   const locations = ['Hyderabad', 'Warangal', 'Hanmakonda', 'Kazipet'];
   const famousHospitals = {
     Hyderabad: ['Apollo Hospital', 'Yashoda Hospitals', 'KIMS Hospital', 'NIMS'],
@@ -55,7 +62,7 @@ const BloodSearch = () => {
 
     setLoading(true);
     try {
-      const response = await bloodBankService.getAvailableBlood(
+      const response = await bloodService.getAvailableBlood(
         searchParams.bloodGroup,
         searchParams.component
       );
@@ -141,7 +148,7 @@ const BloodSearch = () => {
 
             <button type="submit" disabled={loading} className="btn-primary w-full">
               <FaSearch className="mr-2" />
-              {loading ? 'Searching...' : 'Search Blood'}
+              {loading ? 'Searching...' : 'Search Blood in this area'}
             </button>
           </form>
         </div>
