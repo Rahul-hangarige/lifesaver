@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🩸 LifeSaver
 
 Smart Blood Bank & Emergency Blood Donation Management System
@@ -250,3 +251,6 @@ This project is licensed under the MIT License.
 ---
 
 **Built with ❤️ to save lives**
+=======
+# lifesaver
+>>>>>>> 64762b3b1feb8f4e8b19378c374cdacfd89aab46
