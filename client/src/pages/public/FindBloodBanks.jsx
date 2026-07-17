@@ -87,25 +87,21 @@ const FindBloodBanks = () => {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState([]);
   const [searched, setSearched] = useState(false);
-  const [selectedHospital, setSelectedHospital] = useState(null);
-
-  const handleSelectHospital = (hospital) => {
-    setSelectedHospital(hospital);
-  };
-
-  const handleBackToList = () => {
-    setSelectedHospital(null);
-  };
+  const [locating, setLocating] = useState(false);
 
   const reverseGeocode = async (latitude, longitude) => {
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
+        { signal: controller.signal }
       );
+      clearTimeout(timeout);
       const data = await response.json();
-      return data.display_name || `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+      return data.display_name || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
     } catch (error) {
-      return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+      return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
     }
   };
 
@@ -117,9 +113,13 @@ const FindBloodBanks = () => {
 
   const geocodeAddress = async (address) => {
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`,
+        { signal: controller.signal }
       );
+      clearTimeout(timeout);
       const data = await response.json();
       if (data?.[0]) {
         return {
@@ -167,9 +167,10 @@ const FindBloodBanks = () => {
         if (numericCoords) {
           coordinates = numericCoords;
         } else {
+          setStatusMessage('Resolving location...');
           const geo = await geocodeAddress(location);
           if (!geo) {
-            setStatusMessage('Could not resolve the location. Please enter a valid address or coordinates.');
+            setStatusMessage('Could not resolve the location. Please enter a valid address or coordinates (e.g. "New York" or "12.34, 56.78").');
             setLoading(false);
             return;
           }
@@ -183,46 +184,50 @@ const FindBloodBanks = () => {
         ? getDynamicSuggestedHospitals(coordinates, location) 
         : defaultHospitals;
 
-      const defaultResults = suggestedHospitals.map((hospital) => ({
-        ...hospital,
-        availableUnits: hospital.availableUnits,
-        phone: hospital.phone
-      }));
+      // Try fetching from the backend
+      let backendBanks = [];
+      try {
+        const response = await bloodService.getAvailableBlood(selectedGroup);
+        const bloodBags = response.data || [];
+        const banks = {};
 
-      const response = await bloodService.getAvailableBlood(selectedGroup);
-      const bloodBags = response.data || [];
-      const banks = {};
+        bloodBags.forEach((bag) => {
+          const bank = bag.bloodBankId;
+          if (!bank?.location?.coordinates) return;
+          const [lng, lat] = bank.location.coordinates;
+          const distance = getDistanceKm(coordinates.lat, coordinates.lng, lat, lng);
+          if (distance > maxDistanceKm) return;
 
-      bloodBags.forEach((bag) => {
-        const bank = bag.bloodBankId;
-        if (!bank?.location?.coordinates) return;
-        const [lng, lat] = bank.location.coordinates;
-        const distance = getDistanceKm(coordinates.lat, coordinates.lng, lat, lng);
-        if (distance > maxDistanceKm) return;
+          const key = bank._id || `${bank.bankName}-${bank.phone}`;
+          if (!banks[key]) {
+            const address = bank.address
+              ? `${bank.address.street}, ${bank.address.city}, ${bank.address.state}`
+              : bank.bankName;
 
-        const key = bank._id || `${bank.bankName}-${bank.phone}`;
-        if (!banks[key]) {
-          const address = bank.address
-            ? `${bank.address.street}, ${bank.address.city}, ${bank.address.state}`
-            : bank.bankName;
+            banks[key] = {
+              id: key,
+              bankName: bank.bankName || 'Blood Bank',
+              phone: bank.phone || 'N/A',
+              email: bank.email || 'N/A',
+              address,
+              coordinates: { lat, lng },
+              availableUnits: 0,
+              distance: distance.toFixed(1),
+              mapUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`
+            };
+          }
+          banks[key].availableUnits += 1;
+        });
 
-          banks[key] = {
-            id: key,
-            bankName: bank.bankName || 'Blood Bank',
-            phone: bank.phone || 'N/A',
-            email: bank.email || 'N/A',
-            address,
-            coordinates: { lat, lng },
-            availableUnits: 0,
-            distance: distance.toFixed(1),
-            mapUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`
-          };
-        }
-        banks[key].availableUnits += 1;
-      });
+        backendBanks = Object.values(banks).sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
+      } catch (apiError) {
+        console.warn('Backend unavailable, showing location-based suggestions:', apiError.message);
+      }
 
-      const resultList = Object.values(banks).sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
-      const finalResults = [...defaultResults, ...resultList];
+      // Merge: suggested hospitals + backend results (avoid duplicates by name)
+      const existingNames = new Set(suggestedHospitals.map(h => h.bankName.toLowerCase()));
+      const uniqueBackendBanks = backendBanks.filter(b => !existingNames.has(b.bankName.toLowerCase()));
+      const finalResults = [...suggestedHospitals, ...uniqueBackendBanks];
 
       setResults(finalResults);
       setSearched(true);
@@ -231,9 +236,29 @@ const FindBloodBanks = () => {
           ? `Showing ${finalResults.length} hospitals with available ${selectedGroup} within ${radius}.`
           : `No hospitals found with available ${selectedGroup} within ${radius}.`
       );
+
+      // Auto-open Google Maps with the found hospitals
+      if (finalResults.length > 0 && coordinates) {
+        try {
+          const cityName = location ? location.split(',')[0].trim() : 'Nearby';
+          const hospitalNames = finalResults.slice(0, 8).map(h => h.bankName).join(' OR ');
+          const query = encodeURIComponent(`${hospitalNames} blood bank`);
+          const mapsUrl = `https://www.google.com/maps/search/${query}/@${coordinates.lat},${coordinates.lng},14z`;
+
+          const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+          if (isMobile) {
+            window.location.href = `geo:${coordinates.lat},${coordinates.lng}?q=${encodeURIComponent('blood banks')}`;
+            setTimeout(() => window.open(mapsUrl, '_blank', 'noopener,noreferrer'), 500);
+          } else {
+            window.open(mapsUrl, '_blank', 'noopener,noreferrer');
+          }
+        } catch (mapError) {
+          console.warn('Could not open maps automatically:', mapError.message);
+        }
+      }
     } catch (error) {
       console.error('Search failed:', error);
-      setStatusMessage('Unable to complete search. Please try again later.');
+      setStatusMessage('Unable to complete search. The server may be unavailable. Please try again later or call our emergency helpline.');
     } finally {
       setLoading(false);
     }
@@ -241,24 +266,41 @@ const FindBloodBanks = () => {
 
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
-      setStatusMessage('Geolocation is not supported by your browser.');
+      setStatusMessage('Geolocation is not supported by your browser. Please enter your location manually.');
       return;
     }
 
-    setStatusMessage('Getting your current location…');
+    setLocating(true);
+    setStatusMessage('Getting your current location...');
+
+    const geoTimeout = setTimeout(() => {
+      setLocating(false);
+      setStatusMessage('Location request timed out. Please enter your location manually.');
+    }, 10000);
+
     navigator.geolocation.getCurrentPosition(
       async (position) => {
+        clearTimeout(geoTimeout);
         const latitude = position.coords.latitude;
         const longitude = position.coords.longitude;
         setCurrentCoordinates(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
         const address = await reverseGeocode(latitude, longitude);
         setLocation(address);
         setUseCurrentLocation(true);
-        setStatusMessage('Current location detected and address filled automatically.');
+        setLocating(false);
+        const cityName = address ? address.split(',')[0].trim() : 'your location';
+        setStatusMessage(`Location detected: ${cityName}. You can now search for blood banks.`);
       },
-      () => {
-        setStatusMessage('Unable to retrieve your location. Please enter it manually.');
-      }
+      (error) => {
+        clearTimeout(geoTimeout);
+        setLocating(false);
+        let msg = 'Unable to retrieve your location.';
+        if (error.code === 1) msg = 'Location access denied. Please enable location permissions or enter manually.';
+        else if (error.code === 2) msg = 'Location unavailable. Please enter your location manually.';
+        else if (error.code === 3) msg = 'Location request timed out. Please enter your location manually.';
+        setStatusMessage(msg);
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
     );
   };
 
@@ -309,17 +351,9 @@ const FindBloodBanks = () => {
                 </div>
               </div>
               <div className="space-y-4">
-                <button
-                  type="button"
-                  onClick={handleUseCurrentLocation}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-primary-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-primary-700"
-                >
-                  <FaLocationArrow />
-                  Use My Current Location
-                </button>
                 <div>
                   <label htmlFor="manual-location" className="block text-sm font-medium text-gray-700 mb-2">
-                    Enter Location Manually
+                    Enter Your Location
                   </label>
                   <input
                     id="manual-location"
@@ -329,15 +363,25 @@ const FindBloodBanks = () => {
                       setLocation(e.target.value);
                       setUseCurrentLocation(false);
                     }}
-                    placeholder="Enter address or coordinates"
+                    placeholder="Search any city worldwide... e.g. New York, London, Tokyo, Mumbai"
                     className="input-field w-full"
+                    autoFocus
                   />
                   <p className="mt-2 text-sm text-gray-500">
                     {useCurrentLocation
-                      ? `Using detected address from your current location${currentCoordinates ? ` (${currentCoordinates})` : ''}.`
-                      : 'Enter an address or coordinates if you prefer to set location manually.'}
+                      ? `Using detected address: ${location}`
+                      : 'Enter any city name, full address, or GPS coordinates (lat, lng). Works for any location worldwide.'}
                   </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={handleUseCurrentLocation}
+                  disabled={locating}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50 w-full"
+                >
+                  <FaLocationArrow />
+                  {locating ? 'Detecting...' : 'Use My Current Location'}
+                </button>
               </div>
             </section>
 
@@ -376,7 +420,11 @@ const FindBloodBanks = () => {
                 <FaSearch className="mr-3" />
                 {loading ? 'Searching...' : 'Search Blood Banks'}
               </button>
-              {statusMessage && <p className="mt-4 text-sm text-gray-600">{statusMessage}</p>}
+              {statusMessage && (
+                <p className={`mt-4 text-sm ${statusMessage.includes('Unable') || statusMessage.includes('Could not') || statusMessage.includes('denied') || statusMessage.includes('timed out') || statusMessage.includes('unavailable') ? 'text-red-600' : 'text-gray-600'}`}>
+                  {statusMessage}
+                </p>
+              )}
             </div>
           </div>
 
@@ -389,7 +437,7 @@ const FindBloodBanks = () => {
               </li>
               <li>
                 <strong className="text-gray-900">Set Your Location</strong>
-                <p className="mt-1 text-sm text-gray-500">Use your device location or type coordinates manually.</p>
+                <p className="mt-1 text-sm text-gray-500">Use your device location or type any city/address worldwide.</p>
               </li>
               <li>
                 <strong className="text-gray-900">Select Search Radius</strong>
@@ -421,108 +469,6 @@ const FindBloodBanks = () => {
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center text-gray-600">
                 No blood banks were found within the selected radius. Try a different radius or location.
               </div>
-            ) : selectedHospital ? (
-              <section className="rounded-[20px] border border-gray-200 bg-white p-8 shadow-sm mt-10">
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900">{selectedHospital.bankName}</h2>
-                    <p className="mt-2 text-gray-600">{selectedHospital.address}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-3">
-                    <a
-                      href={selectedHospital.mapUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center rounded-full bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700"
-                    >
-                      Open Google Maps
-                    </a>
-                    <button
-                      type="button"
-                      onClick={handleBackToList}
-                      className="rounded-full border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                    >
-                      Back to List
-                    </button>
-                  </div>
-                </div>
-
-                <div className="relative mx-auto mt-10 flex h-[560px] w-[560px] max-w-full items-center justify-center rounded-full bg-red-50 p-8 shadow-sm">
-                  <div className="absolute inset-0 rounded-full border border-red-200" />
-                  <div className="absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2">
-                    {[25, 50, 75, 100].map((percent) => (
-                      <div
-                        key={percent}
-                        className="absolute left-1/2 top-1/2 rounded-full border border-red-200/60"
-                        style={{
-                          width: `${percent}%`,
-                          height: `${percent}%`,
-                          transform: 'translate(-50%, -50%)'
-                        }}
-                      />
-                    ))}
-                  </div>
-
-                  <div className="relative z-20 flex h-28 w-28 flex-col items-center justify-center rounded-full bg-white p-4 text-center shadow-xl">
-                    <p className="text-xs uppercase tracking-[0.2em] text-primary-600">Selected Hospital</p>
-                    <p className="mt-2 font-semibold text-gray-900">{selectedHospital.bankName}</p>
-                    <p className="mt-2 text-xs text-gray-500 line-clamp-3">{selectedHospital.address}</p>
-                  </div>
-
-                  {results
-                    .filter((bank) => bank.id !== selectedHospital.id)
-                    .slice(0, 3)
-                    .map((bank, index) => {
-                      const angle = [330, 90, 210][index];
-                      const maxRadius = 180;
-                      const selectedRadius = radius === 'All' ? 50 : parseInt(radius, 10);
-                      const distanceValue = Math.min(parseFloat(bank.distance) || selectedRadius, selectedRadius);
-                      const distancePct = selectedRadius ? distanceValue / selectedRadius : 1;
-                      const offset = 70 + distancePct * maxRadius;
-                      const x = Math.cos((angle * Math.PI) / 180) * offset;
-                      const y = Math.sin((angle * Math.PI) / 180) * offset;
-
-                      return (
-                        <div
-                          key={bank.id}
-                          className="absolute z-20 w-48 rounded-[20px] border border-gray-200 bg-white p-4 shadow-sm"
-                          style={{
-                            left: '50%',
-                            top: '50%',
-                            transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`
-                          }}
-                        >
-                          <p className="text-sm font-semibold text-red-700">{bank.bankName}</p>
-                          <p className="mt-1 text-sm text-gray-600">{bank.address}</p>
-                          <div className="mt-3 flex items-center justify-between gap-2 rounded-2xl bg-red-50 p-3 text-sm">
-                            <div>
-                              <p className="text-[11px] uppercase tracking-[0.2em] text-gray-500">Units</p>
-                              <p className="mt-1 font-semibold text-gray-900">{bank.availableUnits}</p>
-                            </div>
-                            <div>
-                              <p className="text-[11px] uppercase tracking-[0.2em] text-gray-500">Dist</p>
-                              <p className="mt-1 font-semibold text-gray-900">{bank.distance} km</p>
-                            </div>
-                          </div>
-                          <div className="mt-3 text-sm text-gray-700 flex justify-between items-center">
-                            <div>
-                              <p className="text-[11px] uppercase tracking-[0.2em] text-gray-500">Call</p>
-                              <a href={`tel:${bank.phone.replace(/\D/g, '')}`} className="text-red-700 hover:underline">
-                                {bank.phone}
-                              </a>
-                            </div>
-                            <div>
-                              <p className="text-[11px] uppercase tracking-[0.2em] text-gray-500">Map</p>
-                              <a href={bank.mapUrl} target="_blank" rel="noopener noreferrer" className="text-red-700 hover:underline">
-                                Directions
-                              </a>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-              </section>
             ) : (
               <div className="grid gap-6 lg:grid-cols-2">
                 {results.map((bank) => (
@@ -549,24 +495,18 @@ const FindBloodBanks = () => {
                     </div>
 
                     <div className="mt-6 flex flex-wrap gap-3">
-                      <button
-                        type="button"
-                        onClick={() => handleSelectHospital(bank)}
-                        className="inline-flex items-center justify-center rounded-full bg-primary-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-primary-700"
-                      >
-                        View on Circle Map
-                      </button>
                       <a
-                        href={bank.mapUrl}
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(bank.bankName + ', ' + bank.address)}&travelmode=driving`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
+                        className="inline-flex items-center justify-center rounded-full bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 flex-1"
                       >
-                        Open Maps
+                        <FaMapMarkerAlt className="mr-2" />
+                        Get Direction
                       </a>
                       <a
                         href={`tel:${bank.phone.replace(/\D/g, '')}`}
-                        className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
+                        className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
                       >
                         Call Hospital
                       </a>

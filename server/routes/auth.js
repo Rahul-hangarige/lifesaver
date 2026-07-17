@@ -6,12 +6,6 @@ const Donor = require('../models/Donor');
 const generateToken = require('../utils/generateToken');
 const { auth } = require('../middleware/auth');
 
-const DEMO_EMAIL = 'skrrahul77@gmail.com';
-const DEMO_PASSWORD = '22@oct@2005';
-const DEMO_NAME = 'Rahul';
-const DEMO_PHONE = '9999999999';
-const DEMO_ROLE = 'donor';
-
 const router = express.Router();
 
 // Register
@@ -30,7 +24,8 @@ router.post('/register', [
       return res.status(400).json({ message: errors.array()[0].msg });
     }
 
-    const { name, email, password, phone, role } = req.body;
+    const { name, password, phone, role } = req.body;
+    const email = req.body.email.trim().toLowerCase();
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -70,6 +65,13 @@ router.post('/register', [
       await User.findByIdAndDelete(user._id);
       await Donor.findOneAndDelete({ userId: user._id });
     }
+
+    if (error.code === 11000) {
+      return res.status(400).json({
+        message: 'An account with this email already exists. Please sign in instead.'
+      });
+    }
+
     res.status(500).json({ message: error.message || 'Registration failed' });
   }
 });
@@ -85,33 +87,8 @@ router.post('/login', [
       return res.status(400).json({ message: errors.array()[0].msg });
     }
 
-    const { email, password } = req.body;
-
-    if (email === DEMO_EMAIL && password === DEMO_PASSWORD) {
-      let user = await User.findOne({ email: DEMO_EMAIL });
-      if (!user) {
-        user = new User({
-          name: DEMO_NAME,
-          email: DEMO_EMAIL,
-          password: DEMO_PASSWORD,
-          phone: DEMO_PHONE,
-          role: DEMO_ROLE,
-          isVerified: true
-        });
-        await user.save();
-      }
-      const token = generateToken(user._id);
-      return res.json({
-        token,
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          isVerified: user.isVerified
-        }
-      });
-    }
+    const password = req.body.password;
+    const email = req.body.email.trim().toLowerCase();
 
     const user = await User.findOne({ email });
     if (!user) {

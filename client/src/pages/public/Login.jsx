@@ -4,13 +4,10 @@ import { useAuth } from '../../context/AuthContext';
 import { FaHeartbeat } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 
-const demoEmail = 'skrrahul77@gmail.com';
-const demoPassword = '22@oct@2005';
-
 const Login = () => {
-  const [formData, setFormData] = useState({ email: demoEmail, password: demoPassword });
+  const [formData, setFormData] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
-  const { login, demoLogin } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -22,18 +19,9 @@ const Login = () => {
     setLoading(true);
 
     try {
-      if (
-        formData.email === demoEmail &&
-        formData.password === demoPassword
-      ) {
-        const response = await demoLogin();
-        toast.success('Login successful!');
-        navigate(`/${response.user.role}`);
-      } else {
-        const response = await login(formData.email, formData.password);
-        toast.success('Login successful!');
-        navigate(`/${response.user.role}`);
-      }
+      const response = await login(formData.email, formData.password);
+      toast.success('Login successful!');
+      navigate(`/${response.user.role}`);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Login failed');
     } finally {
@@ -54,7 +42,7 @@ const Login = () => {
           </p>
         </div>
 
-        <form className="space-y-5" onSubmit={handleSubmit}>
+        <form className="space-y-5" onSubmit={handleSubmit} autoComplete="off">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
               Email address
@@ -68,6 +56,7 @@ const Login = () => {
               placeholder="you@example.com"
               value={formData.email}
               onChange={handleChange}
+              autoComplete="new-email"
             />
           </div>
 
@@ -84,6 +73,7 @@ const Login = () => {
               placeholder="••••••••"
               value={formData.password}
               onChange={handleChange}
+              autoComplete="new-password"
             />
           </div>
 

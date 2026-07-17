@@ -11,24 +11,9 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  const demoToken = 'demo-token';
-  const demoUser = {
-    id: 'demo-user',
-    name: 'Rahul',
-    email: 'skrrahul77@gmail.com',
-    role: 'donor',
-    isVerified: true
-  };
-
   const checkAuth = async () => {
     const token = localStorage.getItem('token');
     if (token) {
-      if (token === demoToken) {
-        setUser(demoUser);
-        setLoading(false);
-        return;
-      }
-
       try {
         const response = await axios.get('/api/auth/me', {
           headers: { Authorization: `Bearer ${token}` }
@@ -46,12 +31,6 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('token', response.data.token);
     setUser(response.data.user);
     return response.data;
-  };
-
-  const demoLogin = async () => {
-    localStorage.setItem('token', demoToken);
-    setUser(demoUser);
-    return { user: demoUser };
   };
 
   const register = async (userData) => {
@@ -76,7 +55,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, demoLogin, register, logout, updateProfile, checkAuth }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, updateProfile, checkAuth }}>
       {children}
     </AuthContext.Provider>
   );
