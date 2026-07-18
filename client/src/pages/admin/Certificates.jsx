@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { certificateService } from '../../services/certificateService';
-import { FaAward, FaSearch } from 'react-icons/fa';
+import { FaAward, FaSearch, FaCertificate } from 'react-icons/fa';
 
 const AdminCertificates = () => {
   const [searchTerm, setSearchTerm] = useState('');

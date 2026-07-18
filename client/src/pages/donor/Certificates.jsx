@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { certificateService } from '../../services/certificateService';
-import { FaAward, FaDownload, FaQrcode } from 'react-icons/fa';
+import { FaAward, FaDownload, FaQrcode, FaCertificate } from 'react-icons/fa';
 
 const DonorCertificates = () => {
   const [certificates, setCertificates] = useState([]);

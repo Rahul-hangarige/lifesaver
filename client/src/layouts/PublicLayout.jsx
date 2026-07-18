@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FaHeartbeat, FaSignOutAlt, FaBars, FaTimes } from 'react-icons/fa';
 
@@ -16,6 +16,7 @@ const PublicLayout = () => {
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   const isActive = (path) => location.pathname === path;
 
@@ -52,11 +53,15 @@ const PublicLayout = () => {
                   <div
                     role="button"
                     tabIndex={0}
-                    onClick={logout}
+                    onClick={() => {
+                      logout();
+                      navigate('/login');
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         logout();
+                        navigate('/login');
                       }
                     }}
                     className="p-2 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-50 transition cursor-pointer"
@@ -118,11 +123,12 @@ const PublicLayout = () => {
                   <div
                     role="button"
                     tabIndex={0}
-                    onClick={() => { logout(); setMenuOpen(false); }}
+                    onClick={() => { logout(); navigate('/login'); setMenuOpen(false); }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         logout();
+                        navigate('/login');
                         setMenuOpen(false);
                       }
                     }}

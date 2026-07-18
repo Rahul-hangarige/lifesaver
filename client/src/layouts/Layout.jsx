@@ -94,7 +94,10 @@ const Layout = ({ role }) => {
 
         <div className="absolute bottom-0 w-full p-6">
           <button
-            onClick={logout}
+            onClick={() => {
+              logout();
+              navigate('/login');
+            }}
             className="flex items-center space-x-3 text-gray-300 hover:text-white transition w-full"
           >
             <FaSignOutAlt />

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FaFile, FaDownload } from 'react-icons/fa';
+import { FaFileAlt, FaDownload } from 'react-icons/fa';
 
 const AdminReports = () => {
   const [reportType, setReportType] = useState('');
